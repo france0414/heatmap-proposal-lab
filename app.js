@@ -311,7 +311,7 @@ function drawHeatmap(points, radius) {
   const W = ui.canvas.width;
   const H = ui.canvas.height;
 
-  // Step 1: accumulate raw intensity on an offscreen canvas (white spots, lighter blend)
+  // Step 1: accumulate intensity — large soft blobs so zones form, not discrete circles
   const heatCanvas = document.createElement("canvas");
   heatCanvas.width = W;
   heatCanvas.height = H;
@@ -319,14 +319,15 @@ function drawHeatmap(points, radius) {
   heatCtx.globalCompositeOperation = "lighter";
 
   for (const p of points) {
-    const score = Math.max(0.12, Math.min(1.2, p.score));
-    const baseR = Math.min(radius, W * 0.045);
-    const r = Math.max(16, baseR * (0.55 + score * 0.45));
-    const alpha = Math.min(0.38, 0.12 + score * 0.18);
+    const score = Math.max(0.1, Math.min(1.2, p.score));
+    // Large radius so adjacent hotspots blend into smooth zones
+    const r = Math.max(60, Math.min(radius * 2.2, W * 0.10)) * (0.7 + score * 0.3);
+    // Very low per-blob alpha — colour comes from overlapping accumulation
+    const alpha = Math.min(0.10, 0.025 + score * 0.055);
     const g = heatCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-    g.addColorStop(0,    `rgba(255,255,255,${alpha.toFixed(3)})`);
-    g.addColorStop(0.22, `rgba(255,255,255,${(alpha * 0.42).toFixed(3)})`);
-    g.addColorStop(0.50, `rgba(255,255,255,${(alpha * 0.10).toFixed(3)})`);
+    g.addColorStop(0,    `rgba(255,255,255,${alpha.toFixed(4)})`);
+    g.addColorStop(0.40, `rgba(255,255,255,${(alpha * 0.50).toFixed(4)})`);
+    g.addColorStop(0.75, `rgba(255,255,255,${(alpha * 0.12).toFixed(4)})`);
     g.addColorStop(1,    "rgba(255,255,255,0)");
     heatCtx.fillStyle = g;
     heatCtx.beginPath();
@@ -334,29 +335,30 @@ function drawHeatmap(points, radius) {
     heatCtx.fill();
   }
 
-  // Step 2: map intensity to thermal color using sqrt curve
-  // sqrt(t) spreads colours: 0.04→blue, 0.16→green, 0.36→yellow, 0.64→orange, 1.0→red
+  // Step 2: p90 normalisation so the top 10% = red; rest spread blue→green→yellow→orange
   const raw = heatCtx.getImageData(0, 0, W, H);
+  const vals = [];
+  for (let i = 0; i < raw.data.length; i += 4) {
+    if (raw.data[i] > 2) vals.push(raw.data[i]);
+  }
+  vals.sort((a, b) => a - b);
+  const normMax = Math.max(1, vals.length > 0 ? vals[Math.floor(vals.length * 0.90)] : 1);
+
   const colorCanvas = document.createElement("canvas");
   colorCanvas.width = W;
   colorCanvas.height = H;
   const colorCtx = colorCanvas.getContext("2d");
   const colorData = colorCtx.createImageData(W, H);
 
-  let maxVal = 1;
   for (let i = 0; i < raw.data.length; i += 4) {
-    if (raw.data[i] > maxVal) maxVal = raw.data[i];
-  }
-
-  for (let i = 0; i < raw.data.length; i += 4) {
-    const linear = raw.data[i] / maxVal;          // 0..1
-    const t = Math.pow(linear, 0.45);             // sqrt-ish curve → spreads all colours
-    if (t < 0.04) { colorData.data[i + 3] = 0; continue; }
+    const linear = Math.min(1, raw.data[i] / normMax);
+    const t = Math.pow(linear, 0.45);   // gamma expand: spreads colour across full range
+    if (t < 0.015) { colorData.data[i + 3] = 0; continue; }
     const [cr, cg, cb] = thermalColor(Math.min(0.99, t));
     colorData.data[i]     = cr;
     colorData.data[i + 1] = cg;
     colorData.data[i + 2] = cb;
-    colorData.data[i + 3] = Math.min(200, Math.round(t * 210));
+    colorData.data[i + 3] = Math.min(210, Math.round(t * 225));
   }
   colorCtx.putImageData(colorData, 0, 0);
 
