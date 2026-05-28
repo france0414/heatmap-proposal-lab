@@ -105,7 +105,7 @@ function scorePoint(x, y, width, height, centerBias) {
 
 function generateHotspots(width, height, count, centerBias) {
   const points = [];
-  for (let i = 0; i < count * 8; i += 1) {
+  for (let i = 0; i < count * 20; i += 1) {
     const x = Math.round(Math.random() * width);
     const y = Math.round(Math.random() * height);
     points.push({ x, y, score: scorePoint(x, y, width, height, centerBias) });
@@ -117,7 +117,7 @@ function generateHotspots(width, height, count, centerBias) {
     const tooClose = selected.some((s) => {
       const dx = p.x - s.x;
       const dy = p.y - s.y;
-      return Math.sqrt(dx * dx + dy * dy) < Math.min(width, height) * 0.12;
+      return Math.sqrt(dx * dx + dy * dy) < Math.min(width, height) * 0.06;
     });
     if (!tooClose) selected.push(p);
     if (selected.length >= count) break;
@@ -129,16 +129,30 @@ function drawHeatmap(points, radius) {
   if (!state.image) return;
   drawBaseImage();
   const ctx = createCanvasContext();
+  ctx.globalCompositeOperation = "lighter";
   for (const p of points) {
-    const g = ctx.createRadialGradient(p.x, p.y, 4, p.x, p.y, radius);
-    g.addColorStop(0, "rgba(232,67,32,0.60)");
-    g.addColorStop(0.35, "rgba(255,132,57,0.38)");
-    g.addColorStop(1, "rgba(255,132,57,0)");
+    const score = Math.max(0.1, Math.min(1.25, p.score));
+    const coreR = Math.max(10, radius * (0.45 + score * 0.25));
+    const outerR = Math.max(coreR + 12, radius * (1 + score * 0.55));
+
+    const g = ctx.createRadialGradient(p.x, p.y, 2, p.x, p.y, outerR);
+    g.addColorStop(0, `rgba(255, 255, 210, ${0.45 + score * 0.2})`);
+    g.addColorStop(0.18, `rgba(255, 180, 60, ${0.42 + score * 0.25})`);
+    g.addColorStop(0.42, `rgba(255, 90, 40, ${0.30 + score * 0.25})`);
+    g.addColorStop(0.75, `rgba(220, 45, 38, ${0.16 + score * 0.18})`);
+    g.addColorStop(1, "rgba(220, 45, 38, 0)");
+
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, outerR, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(255, 235, 170, ${0.24 + score * 0.22})`;
+    ctx.arc(p.x, p.y, coreR, 0, Math.PI * 2);
     ctx.fill();
   }
+  ctx.globalCompositeOperation = "source-over";
 }
 
 function levelFromValue(v) {
