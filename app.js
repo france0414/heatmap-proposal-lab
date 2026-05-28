@@ -17,6 +17,7 @@ const ui = {
   predictBtn: document.getElementById("predict-btn"),
   downloadBtn: document.getElementById("download-btn"),
   exportPdfBtn: document.getElementById("export-pdf-btn"),
+  marketingKitBtn: document.getElementById("marketing-kit-btn"),
   hotspotCount: document.getElementById("hotspot-count"),
   heatRadius: document.getElementById("heat-radius"),
   centerBias: document.getElementById("center-bias"),
@@ -89,7 +90,7 @@ function proxiedImageUrl(remoteUrl) {
 // ── Loading state ────────────────────────────────────────────────────────────
 
 function setLoading(active) {
-  [ui.loadPageUrlBtn, ui.domOnlyBtn, ui.pasteBtn, ui.predictBtn].forEach((btn) => {
+  [ui.loadPageUrlBtn, ui.domOnlyBtn, ui.pasteBtn, ui.predictBtn, ui.marketingKitBtn].forEach((btn) => {
     btn.disabled = active;
   });
 }
@@ -462,6 +463,327 @@ function buildProposalReport(points) {
   };
 }
 
+// ── Marketing Kit ────────────────────────────────────────────────────────────
+
+function escHtml(s) {
+  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function ctaColorClass(level) {
+  if (level === "高") return "metric-accent-green";
+  if (level === "低") return "metric-accent-red";
+  return "metric-accent-yellow";
+}
+
+function deriveMarketingCopy(domSignals, report, domain) {
+  const topCtaTexts = [...domSignals]
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+    .filter((s) => (s.priority || 0) >= 4 && s.text && s.text.length > 1 && !/^(nav|a|button|input)$/i.test(s.text))
+    .slice(0, 5)
+    .map((s) => s.text);
+
+  const allText = domSignals.map((s) => s.text || "").join(" ").toLowerCase();
+  let industryTag = "";
+  if (/shop|buy|cart|purchase|order|產品|購買|加入購物/.test(allText)) industryTag = "電商";
+  else if (/book|appointment|schedule|demo|預約|諮詢/.test(allText)) industryTag = "預約服務";
+  else if (/join|sign.?up|register|member|加入|註冊|會員/.test(allText)) industryTag = "會員平台";
+  else if (/contact|partner|聯絡|合作/.test(allText)) industryTag = "企業服務";
+  else if (/start|free|trial|免費|開始|試用/.test(allText)) industryTag = "SaaS / 免費試用";
+
+  const attScore = report.executiveSnapshot.attentionScore;
+  const ctaFocus = report.keyMetrics.primaryCtaFocusShare;
+
+  return {
+    headline: `讓 ${domain} 的每位訪客都完成轉換`,
+    tagline: industryTag
+      ? `${industryTag}熱點分析 — 精準找到用戶最關注的互動點`
+      : `透過熱點分析，優化您的用戶體驗與轉換漏斗`,
+    benefits: [
+      {
+        title: "精準 CTA 定位",
+        desc: topCtaTexts.length > 0
+          ? `識別出「${topCtaTexts[0]}」為最高優先 CTA`
+          : "優化按鈕視覺層級，確保主 CTA 優先被注意",
+      },
+      {
+        title: `注意力評分 ${attScore} / 100`,
+        desc: attScore >= 75
+          ? "頁面注意力集中，用戶行為路徑清晰"
+          : attScore >= 50
+          ? "注意力尚可，仍有提升首屏轉換的空間"
+          : "注意力分散，建議簡化視覺層級與訊息結構",
+      },
+      {
+        title: "首屏焦點優化",
+        desc: `主 CTA 焦點占比 ${ctaFocus}，確保關鍵行動呼籲出現在首屏視野內`,
+      },
+    ],
+    ctas: [
+      { context: "首屏主要 CTA", text: topCtaTexts[0] || "立即開始" },
+      { context: "內文次要 CTA", text: topCtaTexts[1] || "了解更多" },
+      { context: "社群廣告 CTA", text: topCtaTexts[2] || `探索 ${domain}` },
+    ],
+  };
+}
+
+function generateMarketingKit() {
+  if (!state.image || !state.report) {
+    ui.outputJson.textContent = "請先生成預測，再匯出行銷套件。";
+    return;
+  }
+
+  const r = state.report;
+  const heatmapPng = ui.canvas.toDataURL("image/png");
+
+  const pageUrl = ui.pageUrlInput.value.trim();
+  let domain = state.sourceLabel;
+  try { if (pageUrl) domain = new URL(pageUrl).hostname.replace(/^www\./, ""); } catch {}
+
+  const now = new Date().toLocaleDateString("zh-Hant", { year: "numeric", month: "2-digit", day: "2-digit" });
+  const copy = deriveMarketingCopy(state.domSignals, r, domain);
+
+  // CTA cards
+  const topCtaSignals = [...state.domSignals]
+    .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+    .slice(0, 6)
+    .filter((s) => (s.priority || 0) >= 3);
+
+  const ctaCardsHtml = topCtaSignals.length > 0
+    ? topCtaSignals.map((s) => {
+        const pct = Math.min(100, Math.round(((s.priority || 0) / 10) * 100));
+        const kind = s.kind === "button" ? "按鈕" : s.kind === "input" ? "表單" : "連結";
+        const zone = (s.positionRatio || 0) < 0.1 ? "導覽列" : (s.positionRatio || 0) < 0.4 ? "首屏" : (s.positionRatio || 0) < 0.8 ? "中段" : "底部";
+        return `<div class="cta-card">
+          <div class="cta-type">${kind}</div>
+          <div class="cta-text">${escHtml((s.text || s.kind || "").slice(0, 50))}</div>
+          <div class="cta-meta">${zone} · 優先度 ${s.priority || 0}/10</div>
+          <div class="cta-bar"><div class="cta-bar-fill" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join("")
+    : "<p class='empty-state'>未載入 DOM 訊號，請輸入網址後按「只抓 DOM 訊號」。</p>";
+
+  // Attention fold split
+  const CH = ui.canvas.height;
+  const aboveFold = state.lastPoints.filter((p) => p.y < CH * 0.5).length;
+  const abovePct = Math.round((aboveFold / Math.max(1, state.lastPoints.length)) * 100);
+
+  // Top hotspots rows
+  const hotspotsHtml = r.topHotspots.map((p) => `
+    <div class="hotspot-row">
+      <span class="hotspot-rank">#${p.rank}</span>
+      <span class="hotspot-label">${escHtml(p.label || (p.source === "dom" ? "DOM 元素" : "視覺焦點"))}</span>
+      <span class="hotspot-score">${p.score} 分</span>
+      <span class="hotspot-pos">(${p.x}, ${p.y})</span>
+    </div>`).join("");
+
+  // Recommendations
+  const recsHtml = r.recommendations.map((rec, i) => `
+    <div class="rec-item">
+      <div class="rec-num">${i + 1}</div>
+      <div>
+        <div class="rec-issue">${escHtml(rec.issue)}</div>
+        <div class="rec-fix">${escHtml(rec.recommendation)}</div>
+      </div>
+    </div>`).join("");
+
+  // Benefits grid
+  const benefitsHtml = copy.benefits.map((b) => `
+    <div class="benefit-item">
+      <div class="benefit-title">${escHtml(b.title)}</div>
+      <div class="benefit-desc">${escHtml(b.desc)}</div>
+    </div>`).join("");
+
+  const ctasHtml = copy.ctas.map((c) => `
+    <div class="benefit-item">
+      <div class="benefit-title">${escHtml(c.context)}</div>
+      <div class="benefit-cta">${escHtml(c.text)}</div>
+    </div>`).join("");
+
+  const html = `<!doctype html>
+<html lang="zh-Hant"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>行銷套件 · ${escHtml(domain)}</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{font-family:Inter,"Noto Sans TC",Arial,sans-serif;margin:0;background:#0d1117;color:#e6edf3;line-height:1.5}
+.page{max-width:900px;margin:0 auto;padding:48px 32px;page-break-after:always}
+.kit-header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1px solid #30363d;padding-bottom:24px;margin-bottom:36px}
+.kit-brand{font-size:11px;font-weight:700;letter-spacing:.12em;color:#58a6ff;text-transform:uppercase}
+.kit-title{font-size:26px;font-weight:800;color:#e6edf3;margin-top:4px}
+.kit-meta{font-size:12px;color:#8b949e;text-align:right}
+.section-header{font-size:16px;font-weight:700;color:#e6edf3;margin:32px 0 14px;padding-left:12px;border-left:3px solid #58a6ff}
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:8px}
+.metric-card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:18px}
+.metric-value{font-size:28px;font-weight:800;color:#58a6ff}
+.metric-label{font-size:11px;color:#8b949e;margin-top:4px}
+.metric-accent-green .metric-value{color:#3fb950}
+.metric-accent-yellow .metric-value{color:#d29922}
+.metric-accent-red .metric-value{color:#f85149}
+.heatmap-wrap{border-radius:10px;overflow:hidden;border:1px solid #30363d;margin-bottom:8px}
+.heatmap-wrap img{width:100%;display:block}
+.cta-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.cta-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px}
+.cta-type{font-size:10px;font-weight:700;letter-spacing:.08em;color:#58a6ff;text-transform:uppercase;margin-bottom:6px}
+.cta-text{font-size:14px;font-weight:600;color:#e6edf3;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cta-meta{font-size:11px;color:#8b949e;margin-bottom:8px}
+.cta-bar{height:4px;background:#21262d;border-radius:2px}
+.cta-bar-fill{height:100%;background:linear-gradient(90deg,#388bfd,#79c0ff);border-radius:2px}
+.fold-split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px}
+.fold-card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;text-align:center}
+.fold-pct{font-size:44px;font-weight:800;color:#3fb950}
+.fold-pct.low{color:#8b949e}
+.fold-label{font-size:13px;color:#8b949e;margin-top:6px}
+.hotspot-row{display:flex;align-items:center;gap:12px;padding:12px 16px;background:#161b22;border:1px solid #30363d;border-radius:8px;margin-bottom:8px}
+.hotspot-rank{font-size:11px;font-weight:700;color:#58a6ff;width:28px}
+.hotspot-label{flex:1;font-size:13px;color:#e6edf3;font-weight:500}
+.hotspot-score{font-size:13px;font-weight:600;color:#3fb950}
+.hotspot-pos{font-size:11px;color:#8b949e}
+.rec-item{display:flex;gap:16px;align-items:flex-start;padding:16px;background:#161b22;border:1px solid #30363d;border-radius:10px;margin-bottom:10px}
+.rec-num{width:28px;height:28px;border-radius:50%;background:#58a6ff;color:#0d1117;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rec-issue{font-size:14px;font-weight:600;color:#e6edf3}
+.rec-fix{font-size:13px;color:#8b949e;margin-top:4px}
+.copy-card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;margin-bottom:14px}
+.copy-label{font-size:10px;font-weight:700;letter-spacing:.1em;color:#58a6ff;text-transform:uppercase;margin-bottom:10px}
+.copy-headline{font-size:22px;font-weight:800;color:#e6edf3;margin-bottom:8px}
+.copy-sub{font-size:14px;color:#8b949e}
+.benefits-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.benefit-item{background:#0d1117;border-radius:8px;padding:14px}
+.benefit-title{font-size:12px;font-weight:600;color:#e6edf3}
+.benefit-desc{font-size:12px;color:#8b949e;margin-top:4px}
+.benefit-cta{font-size:15px;font-weight:700;color:#58a6ff;margin-top:6px}
+.empty-state{color:#8b949e;font-size:13px;font-style:italic;padding:16px}
+.kit-footer{margin-top:40px;padding-top:20px;border-top:1px solid #30363d;display:flex;justify-content:space-between;font-size:11px;color:#8b949e}
+@media print{
+  body{background:#fff;color:#111}
+  .metric-card,.cta-card,.fold-card,.hotspot-row,.rec-item,.copy-card,.benefit-item{background:#f6f8fa;border-color:#d0d7de}
+  .metric-value,.fold-pct,.hotspot-score,.benefit-cta{color:#0969da}
+  .metric-accent-green .metric-value{color:#1a7f37}
+  .e6edf3,.kit-title,.rec-issue,.hotspot-label,.benefit-title,.copy-headline{color:#1f2328}
+  .8b949e,.kit-meta,.kit-brand,.metric-label,.cta-meta,.fold-label,.hotspot-pos,.rec-fix,.benefit-desc,.copy-sub{color:#636c76}
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="kit-header">
+    <div>
+      <div class="kit-brand">Heatmap Prediction Lab</div>
+      <div class="kit-title">行銷熱點套件 Marketing Kit</div>
+    </div>
+    <div class="kit-meta">${escHtml(domain)}<br>${now}</div>
+  </div>
+
+  <div class="section-header">熱點圖預覽</div>
+  <div class="heatmap-wrap"><img src="${heatmapPng}" alt="Heatmap"/></div>
+
+  <div class="section-header">關鍵指標</div>
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-value">${r.executiveSnapshot.attentionScore}</div>
+      <div class="metric-label">注意力評分 / 100</div>
+    </div>
+    <div class="metric-card ${ctaColorClass(r.executiveSnapshot.ctaVisibilityLevel)}">
+      <div class="metric-value">${r.keyMetrics.primaryCtaFocusShare}</div>
+      <div class="metric-label">主 CTA 焦點占比</div>
+    </div>
+    <div class="metric-card metric-accent-green">
+      <div class="metric-value">${state.domSignals.length || "—"}</div>
+      <div class="metric-label">DOM 訊號數量</div>
+    </div>
+    <div class="metric-card metric-accent-yellow">
+      <div class="metric-value">${r.keyMetrics.estimatedMisTapRate}</div>
+      <div class="metric-label">預估誤觸率</div>
+    </div>
+  </div>
+
+  <div class="kit-footer">
+    <span>圖片熱點預測器 自動生成</span>
+    <span>${escHtml(domain)} · ${now}</span>
+  </div>
+</div>
+
+<div class="page">
+  <div class="kit-header">
+    <div>
+      <div class="kit-brand">Heatmap Prediction Lab</div>
+      <div class="kit-title">CTA 元素分析</div>
+    </div>
+    <div class="kit-meta">${escHtml(domain)}<br>${now}</div>
+  </div>
+
+  <div class="section-header">偵測到的可互動元素</div>
+  <div class="cta-grid">${ctaCardsHtml}</div>
+
+  <div class="section-header">注意力分布（首屏 vs 全頁）</div>
+  <div class="fold-split">
+    <div class="fold-card">
+      <div class="fold-pct">${abovePct}%</div>
+      <div class="fold-label">首屏熱點占比<br>（頁面前半段）</div>
+    </div>
+    <div class="fold-card">
+      <div class="fold-pct${abovePct > 60 ? " low" : ""}">${100 - abovePct}%</div>
+      <div class="fold-label">下方熱點占比<br>（頁面後半段）</div>
+    </div>
+  </div>
+
+  <div class="section-header">前三熱點</div>
+  ${hotspotsHtml}
+
+  <div class="kit-footer">
+    <span>圖片熱點預測器 自動生成</span>
+    <span>${escHtml(domain)} · ${now}</span>
+  </div>
+</div>
+
+<div class="page">
+  <div class="kit-header">
+    <div>
+      <div class="kit-brand">Heatmap Prediction Lab</div>
+      <div class="kit-title">優化建議 &amp; 文案套件</div>
+    </div>
+    <div class="kit-meta">${escHtml(domain)}<br>${now}</div>
+  </div>
+
+  <div class="section-header">優化建議</div>
+  ${recsHtml}
+
+  <div class="section-header">行銷文案建議</div>
+  <div class="copy-card">
+    <div class="copy-label">主標題 Headline</div>
+    <div class="copy-headline">${escHtml(copy.headline)}</div>
+    <div class="copy-sub">${escHtml(copy.tagline)}</div>
+  </div>
+  <div class="copy-card">
+    <div class="copy-label">核心優勢 Benefits</div>
+    <div class="benefits-grid">${benefitsHtml}</div>
+  </div>
+  <div class="copy-card">
+    <div class="copy-label">呼籲行動 CTA Copy</div>
+    <div class="benefits-grid">${ctasHtml}</div>
+  </div>
+
+  <div class="kit-footer">
+    <span>圖片熱點預測器 自動生成</span>
+    <span>${escHtml(domain)} · ${now}</span>
+  </div>
+</div>
+
+</body></html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) {
+    ui.outputJson.textContent = "瀏覽器封鎖彈出視窗，請允許後再匯出。";
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 600);
+}
+
 // ── PDF export ───────────────────────────────────────────────────────────────
 
 function drawRiskOverlayImage(points) {
@@ -782,6 +1104,7 @@ function wireEvents() {
   });
   ui.downloadBtn.addEventListener("click", downloadHeatmap);
   ui.exportPdfBtn.addEventListener("click", exportProposalPdf);
+  ui.marketingKitBtn.addEventListener("click", generateMarketingKit);
 }
 
 function bootstrap() {
