@@ -62,10 +62,11 @@ function pickPreviewCandidates(html, pageUrl) {
   const candidates = [];
   const encoded = encodeURIComponent(pageUrl);
 
-  // Multiple screenshot services tried in order
+  // Multiple screenshot services tried in order — fullpage variants first
+  candidates.push(`https://image.thum.io/get/width/1400/fullpage/noanimate/${encoded}`);
+  candidates.push(`https://api.microlink.io/?url=${encoded}&screenshot=true&meta=false&embed=screenshot.url&fullPage=true`);
   candidates.push(`https://image.thum.io/get/width/1400/noanimate/${encoded}`);
   candidates.push(`https://s.wordpress.com/mshots/v1/${encoded}?w=1400&h=900`);
-  candidates.push(`https://api.microlink.io/?url=${encoded}&screenshot=true&meta=false&embed=screenshot.url`);
 
   const metaRe = /<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["'][^>]*>/gi;
   let m;

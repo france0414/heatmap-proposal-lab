@@ -131,9 +131,11 @@ input[type="range"] {
   margin-top: 8px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: #0e151d;
   min-height: 200px;
+  max-height: 80vh;
 }
 
 #preview-canvas {
