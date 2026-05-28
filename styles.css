@@ -67,8 +67,8 @@ input[type="file"]::file-selector-button {
 }
 
 .ghost {
-  background: #0f151e;
-  color: var(--ink);
+  background: #ffffff;
+  color: #0f151e;
   border: 1px solid var(--line);
 }
 
