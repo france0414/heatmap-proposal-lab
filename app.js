@@ -44,7 +44,7 @@ function createCanvasContext() {
 }
 
 function fitCanvasToImage(img) {
-  const maxWidth = 1400;
+  const maxWidth = 1920;
   const scale = Math.min(1, maxWidth / img.width);
   ui.canvas.width = Math.round(img.width * scale);
   ui.canvas.height = Math.round(img.height * scale);
