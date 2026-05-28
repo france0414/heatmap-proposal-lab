@@ -60,10 +60,17 @@ input[type="file"]::file-selector-button {
   border: 0;
   border-radius: 10px;
   padding: 10px 14px;
-  background: var(--ink);
+  background: var(--accent);
   color: #fff;
   font-weight: 600;
   cursor: pointer;
+}
+
+button:disabled,
+input[type="file"]:disabled::file-selector-button {
+  background: #7b8593;
+  color: #eaf0ff;
+  cursor: not-allowed;
 }
 
 .ghost {
