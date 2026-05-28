@@ -311,58 +311,55 @@ function drawHeatmap(points, radius) {
   const W = ui.canvas.width;
   const H = ui.canvas.height;
 
-  // Step 1: accumulate intensity — large soft blobs so zones form, not discrete circles
-  const heatCanvas = document.createElement("canvas");
-  heatCanvas.width = W;
-  heatCanvas.height = H;
-  const heatCtx = heatCanvas.getContext("2d");
-  heatCtx.globalCompositeOperation = "lighter";
-
+  // Step 1: accumulate into Float32 directly — bypasses canvas premult-alpha issues
+  const intensity = new Float32Array(W * H);
   for (const p of points) {
     const score = Math.max(0.1, Math.min(1.2, p.score));
-    // Large radius so adjacent hotspots blend into smooth zones
-    const r = Math.max(60, Math.min(radius * 2.2, W * 0.10)) * (0.7 + score * 0.3);
-    // Very low per-blob alpha — colour comes from overlapping accumulation
-    const alpha = Math.min(0.10, 0.025 + score * 0.055);
-    const g = heatCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-    g.addColorStop(0,    `rgba(255,255,255,${alpha.toFixed(4)})`);
-    g.addColorStop(0.40, `rgba(255,255,255,${(alpha * 0.50).toFixed(4)})`);
-    g.addColorStop(0.75, `rgba(255,255,255,${(alpha * 0.12).toFixed(4)})`);
-    g.addColorStop(1,    "rgba(255,255,255,0)");
-    heatCtx.fillStyle = g;
-    heatCtx.beginPath();
-    heatCtx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    heatCtx.fill();
+    const r = Math.max(50, Math.min(radius * 2.0, W * 0.11)) * (0.7 + score * 0.3);
+    const r2 = r * r;
+    const x0 = Math.max(0, Math.floor(p.x - r));
+    const x1 = Math.min(W - 1, Math.ceil(p.x + r));
+    const y0 = Math.max(0, Math.floor(p.y - r));
+    const y1 = Math.min(H - 1, Math.ceil(p.y + r));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const d2 = (x - p.x) ** 2 + (y - p.y) ** 2;
+        if (d2 > r2) continue;
+        intensity[y * W + x] += score * Math.exp((-d2 / r2) * 3.5);
+      }
+    }
   }
 
-  // Step 2: p90 normalisation so the top 10% = red; rest spread blue→green→yellow→orange
-  const raw = heatCtx.getImageData(0, 0, W, H);
-  const vals = [];
-  for (let i = 0; i < raw.data.length; i += 4) {
-    if (raw.data[i] > 2) vals.push(raw.data[i]);
+  // Step 2: p85 of non-zero pixels as ceiling so colours spread from blue to red
+  const sample = [];
+  const stride = Math.max(1, Math.floor(W * H / 80000));
+  for (let i = 0; i < intensity.length; i += stride) {
+    if (intensity[i] > 0.005) sample.push(intensity[i]);
   }
-  vals.sort((a, b) => a - b);
-  const normMax = Math.max(1, vals.length > 0 ? vals[Math.floor(vals.length * 0.90)] : 1);
+  sample.sort((a, b) => a - b);
+  const normMax = Math.max(0.001, sample.length ? sample[Math.floor(sample.length * 0.85)] : 1);
 
+  // Step 3: paint thermal colour into ImageData
   const colorCanvas = document.createElement("canvas");
   colorCanvas.width = W;
   colorCanvas.height = H;
   const colorCtx = colorCanvas.getContext("2d");
   const colorData = colorCtx.createImageData(W, H);
 
-  for (let i = 0; i < raw.data.length; i += 4) {
-    const linear = Math.min(1, raw.data[i] / normMax);
-    const t = Math.pow(linear, 0.45);   // gamma expand: spreads colour across full range
-    if (t < 0.015) { colorData.data[i + 3] = 0; continue; }
+  for (let i = 0; i < intensity.length; i++) {
+    const linear = Math.min(1, intensity[i] / normMax);
+    const t = Math.pow(linear, 0.55);
+    if (t < 0.018) continue;
     const [cr, cg, cb] = thermalColor(Math.min(0.99, t));
-    colorData.data[i]     = cr;
-    colorData.data[i + 1] = cg;
-    colorData.data[i + 2] = cb;
-    colorData.data[i + 3] = Math.min(210, Math.round(t * 225));
+    const idx = i * 4;
+    colorData.data[idx]     = cr;
+    colorData.data[idx + 1] = cg;
+    colorData.data[idx + 2] = cb;
+    colorData.data[idx + 3] = Math.min(205, Math.round(t * 218));
   }
   colorCtx.putImageData(colorData, 0, 0);
 
-  // Step 3: composite thermal layer over base image
+  // Step 4: composite thermal layer over base image
   ctx.drawImage(colorCanvas, 0, 0);
 }
 
