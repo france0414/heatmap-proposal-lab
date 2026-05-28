@@ -60,6 +60,7 @@ function uniqueUrls(items) {
 function pickPreviewCandidates(html, pageUrl) {
   const head = html.slice(0, 200000);
   const candidates = [];
+  candidates.push(`https://image.thum.io/get/width/1400/noanimate/${encodeURIComponent(pageUrl)}`);
   const metaRe = /<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["'][^>]*>/gi;
   let m;
   while ((m = metaRe.exec(head))) {
@@ -70,7 +71,6 @@ function pickPreviewCandidates(html, pageUrl) {
       // ignore malformed URL
     }
   }
-  candidates.push(`https://image.thum.io/get/width/1400/noanimate/${encodeURIComponent(pageUrl)}`);
   return uniqueUrls(candidates);
 }
 
