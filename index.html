@@ -24,12 +24,12 @@
       <section class="card">
         <h2>輸入來源</h2>
         <div class="stack">
-          <label class="label">1) AI 熱點圖（建議先用 Clueify / Visual Eyes 產生）</label>
+          <label class="label">1) 網站截圖</label>
           <div class="row">
             <input id="image-file" type="file" accept="image/*" />
             <button id="paste-btn" class="ghost">貼上圖片 (Ctrl+V)</button>
           </div>
-          <p class="hint">推薦流程：在 Figma 用 Clueify 或 Visual Eyes 跑 AI 熱點圖 → 截圖 → 貼上。沒有 Figma？直接貼網站截圖也可以。</p>
+          <p class="hint">對網站按 Ctrl+V 貼上截圖，或上傳圖片。有 GDPR 彈窗？先在瀏覽器關掉再截圖。</p>
 
           <label class="label" for="page-url">2) 網頁網址（抓 DOM CTA 訊號）</label>
           <div class="row">
@@ -73,7 +73,7 @@
     </main>
 
     <footer class="footer">
-      <span>建議搭配 Clueify（Figma）或 Visual Eyes 產生 AI 熱點圖，再用本工具疊加 DOM 分析與行銷套件報告。</span>
+      <span>貼上截圖 ＋ 輸入網址 → DOM CTA 分析 ＋ 行銷套件報告。不需要 GA，不需要額外工具。</span>
     </footer>
 
     <script src="./app.js"></script>
