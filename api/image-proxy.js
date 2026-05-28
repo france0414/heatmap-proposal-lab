@@ -23,6 +23,7 @@ export default async function handler(req, res) {
     const arrayBuffer = await upstream.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     res.setHeader("Content-Type", contentType);
+    res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
     return res.status(200).send(buffer);
   } catch (error) {

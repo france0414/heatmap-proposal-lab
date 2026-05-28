@@ -147,13 +147,16 @@ input[type="range"] {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #0f151e;
-  padding: 10px;
+  background: #0d131c;
+  padding: 16px 20px;
   min-height: 200px;
   white-space: pre-wrap;
   overflow-x: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #cde0ff;
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  line-height: 1.75;
+  color: #d4e6ff;
+  letter-spacing: 0.01em;
 }
 
 .footer {
