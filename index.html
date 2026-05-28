@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <h1>圖片熱點預測器</h1>
-        <p>提案模式：上傳圖片或貼網址，快速生成熱點圖與提案報告。</p>
+        <p>提案模式：支援圖片預測與網址 DOM 融合預測。</p>
       </div>
       <div class="actions">
         <button id="predict-btn">生成預測</button>
@@ -32,12 +32,12 @@
             <button id="load-image-url-btn">載入圖片網址</button>
           </div>
 
-          <label class="label" for="page-url">3) 網頁網址（縮圖擷取）</label>
+          <label class="label" for="page-url">3) 網頁網址（DOM 融合）</label>
           <div class="row">
             <input id="page-url" type="url" placeholder="https://your-landing-page.com" />
-            <button id="load-page-url-btn">載入網頁網址</button>
+            <button id="load-page-url-btn">載入網址並抓 DOM</button>
           </div>
-          <p class="hint">也可直接從剪貼簿貼上圖片（Ctrl+V）。</p>
+          <p class="hint">貼網址時會呼叫後端 API 抓取可互動元素訊號。</p>
         </div>
       </section>
 
@@ -52,15 +52,19 @@
           <input id="heat-radius" type="range" min="28" max="160" value="84" />
           <div id="heat-radius-label" class="hint">84px 半徑</div>
 
-          <label class="label" for="center-bias">中心偏好</label>
+          <label class="label" for="center-bias">中心偏好（圖片）</label>
           <input id="center-bias" type="range" min="0" max="100" value="56" />
-          <div id="center-bias-label" class="hint">56% 中心偏好</div>
+          <div id="center-bias-label" class="hint">56%</div>
+
+          <label class="label" for="dom-weight">DOM 權重（融合）</label>
+          <input id="dom-weight" type="range" min="0" max="100" value="70" />
+          <div id="dom-weight-label" class="hint">70%</div>
         </div>
       </section>
 
       <section class="card wide">
         <h2>輸出結果</h2>
-        <p class="hint">橘色越深代表預測注意力越高。</p>
+        <p class="hint">橘色越深表示預測注意力越高。DOM 融合時會優先點亮可點擊元素區。</p>
         <div class="canvas-wrap">
           <canvas id="preview-canvas"></canvas>
         </div>
@@ -69,7 +73,7 @@
     </main>
 
     <footer class="footer">
-      <span>不需 GA 資料，可直接部署在 GitHub Pages 與 Vercel。</span>
+      <span>不需 GA。建議網址分析使用 Vercel 部署版，以啟用後端 DOM 抓取。</span>
     </footer>
 
     <script src="./app.js"></script>
