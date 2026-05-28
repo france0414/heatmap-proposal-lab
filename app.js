@@ -241,17 +241,16 @@ function fusePoints(visualPoints, domPoints, domWeightPct, maxCount) {
 // ── Heatmap rendering ────────────────────────────────────────────────────────
 
 function thermalColor(t) {
-  // blue → cyan → green → yellow → orange → red
+  // blue → cyan → green → yellow → orange → red (no white blowout)
   const stops = [
-    [0, 0, 180],
+    [30, 30, 220],
     [0, 160, 255],
-    [0, 220, 80],
-    [255, 240, 0],
-    [255, 120, 0],
-    [255, 20, 20],
-    [255, 255, 255],
+    [0, 210, 80],
+    [255, 230, 0],
+    [255, 100, 0],
+    [220, 10, 10],
   ];
-  const idx = t * (stops.length - 1);
+  const idx = Math.min(0.9999, t) * (stops.length - 1);
   const lo = Math.floor(idx);
   const hi = Math.min(stops.length - 1, lo + 1);
   const f = idx - lo;
@@ -273,13 +272,15 @@ function drawHeatmap(points, radius) {
   heatCtx.globalCompositeOperation = "lighter";
 
   for (const p of points) {
-    const score = Math.max(0.12, Math.min(1.35, p.score));
-    const r = Math.max(24, radius * (0.7 + score * 0.55));
-    const alpha = Math.min(0.85, 0.22 + score * 0.28);
+    const score = Math.max(0.12, Math.min(1.2, p.score));
+    // Scale radius relative to canvas size so it looks right on both small and full-page screenshots
+    const baseR = Math.min(radius, Math.min(W, H) * 0.12);
+    const r = Math.max(20, baseR * (0.65 + score * 0.45));
+    const alpha = Math.min(0.55, 0.16 + score * 0.22);
     const g = heatCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-    g.addColorStop(0,    `rgba(255,255,255,${alpha})`);
-    g.addColorStop(0.35, `rgba(255,255,255,${(alpha * 0.52).toFixed(3)})`);
-    g.addColorStop(0.7,  `rgba(255,255,255,${(alpha * 0.16).toFixed(3)})`);
+    g.addColorStop(0,    `rgba(255,255,255,${alpha.toFixed(3)})`);
+    g.addColorStop(0.4,  `rgba(255,255,255,${(alpha * 0.45).toFixed(3)})`);
+    g.addColorStop(0.75, `rgba(255,255,255,${(alpha * 0.12).toFixed(3)})`);
     g.addColorStop(1,    "rgba(255,255,255,0)");
     heatCtx.fillStyle = g;
     heatCtx.beginPath();
@@ -295,14 +296,21 @@ function drawHeatmap(points, radius) {
   const colorCtx = colorCanvas.getContext("2d");
   const colorData = colorCtx.createImageData(W, H);
 
+  // Find actual max intensity to normalize dynamically (prevents white blowout)
+  let maxVal = 1;
   for (let i = 0; i < raw.data.length; i += 4) {
-    const t = Math.min(1, raw.data[i] / 220);
-    if (t < 0.02) { colorData.data[i + 3] = 0; continue; }
+    if (raw.data[i] > maxVal) maxVal = raw.data[i];
+  }
+  const norm = Math.max(maxVal * 0.85, 60);
+
+  for (let i = 0; i < raw.data.length; i += 4) {
+    const t = Math.min(0.98, raw.data[i] / norm);
+    if (t < 0.025) { colorData.data[i + 3] = 0; continue; }
     const [cr, cg, cb] = thermalColor(t);
     colorData.data[i]     = cr;
     colorData.data[i + 1] = cg;
     colorData.data[i + 2] = cb;
-    colorData.data[i + 3] = Math.min(210, Math.round(t * 200));
+    colorData.data[i + 3] = Math.min(195, Math.round(t * 195));
   }
   colorCtx.putImageData(colorData, 0, 0);
 
