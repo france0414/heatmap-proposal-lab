@@ -15,6 +15,7 @@ const ui = {
   loadImageUrlBtn: document.getElementById("load-image-url-btn"),
   loadPageUrlBtn: document.getElementById("load-page-url-btn"),
   domOnlyBtn: document.getElementById("dom-only-btn"),
+  pasteBtn: document.getElementById("paste-btn"),
   predictBtn: document.getElementById("predict-btn"),
   downloadBtn: document.getElementById("download-btn"),
   exportPdfBtn: document.getElementById("export-pdf-btn"),
@@ -593,6 +594,29 @@ async function loadPreviewFromCandidates(candidates, pageUrl) {
   return null;
 }
 
+async function pasteScreenshot() {
+  try {
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const imageType = item.types.find((t) => t.startsWith("image/"));
+      if (imageType) {
+        const blob = await item.getType(imageType);
+        const url = URL.createObjectURL(blob);
+        await setImageFromUrl(url, "剪貼簿截圖");
+        URL.revokeObjectURL(url);
+        state.domSignals = [];
+        state.domSummary = null;
+        updateSliderLabels();
+        ui.outputJson.textContent = "截圖已貼上，請按「生成預測」。若需 DOM 訊號，請在網頁網址欄貼上網址後按「只抓 DOM 訊號」。";
+        return;
+      }
+    }
+    ui.outputJson.textContent = "剪貼簿中沒有圖片，請先截圖（Win+Shift+S 或 Cmd+Shift+4）再貼上。";
+  } catch {
+    ui.outputJson.textContent = "無法讀取剪貼簿，請確認已授權瀏覽器存取剪貼簿權限，或改用「上傳圖片」。";
+  }
+}
+
 async function loadDomOnly() {
   const pageUrl = ui.pageUrlInput.value.trim();
   if (!pageUrl) return;
@@ -667,6 +691,31 @@ function wireEvents() {
       await loadPageWithDom();
     } catch (err) {
       ui.outputJson.textContent = `網址載入失敗：${err.message}`;
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  ui.pasteBtn.addEventListener("click", async () => {
+    setLoading(true);
+    try {
+      await pasteScreenshot();
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  // 全域 Ctrl+V 貼圖支援
+  document.addEventListener("paste", async (e) => {
+    const imageFile = Array.from(e.clipboardData?.files || []).find((f) => f.type.startsWith("image/"));
+    if (!imageFile) return;
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await setImageFromFile(imageFile);
+      ui.outputJson.textContent = "截圖已貼上，請按「生成預測」。若需 DOM 訊號，請在網頁網址欄貼上網址後按「只抓 DOM 訊號」。";
+    } catch (err) {
+      ui.outputJson.textContent = `貼上失敗：${err.message}`;
     } finally {
       setLoading(false);
     }
