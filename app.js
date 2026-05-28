@@ -319,14 +319,14 @@ function drawHeatmap(points, radius) {
 
   for (const p of points) {
     const score = Math.max(0.12, Math.min(1.2, p.score));
-    // Scale radius relative to canvas size so it looks right on both small and full-page screenshots
-    const baseR = Math.min(radius, Math.min(W, H) * 0.12);
-    const r = Math.max(20, baseR * (0.65 + score * 0.45));
-    const alpha = Math.min(0.55, 0.16 + score * 0.22);
+    // Cap radius at 4.5% of canvas width — prevents giant blobs on full-page screenshots
+    const baseR = Math.min(radius, W * 0.045);
+    const r = Math.max(16, baseR * (0.55 + score * 0.45));
+    const alpha = Math.min(0.28, 0.09 + score * 0.12);
     const g = heatCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
     g.addColorStop(0,    `rgba(255,255,255,${alpha.toFixed(3)})`);
-    g.addColorStop(0.4,  `rgba(255,255,255,${(alpha * 0.45).toFixed(3)})`);
-    g.addColorStop(0.75, `rgba(255,255,255,${(alpha * 0.12).toFixed(3)})`);
+    g.addColorStop(0.25, `rgba(255,255,255,${(alpha * 0.38).toFixed(3)})`);
+    g.addColorStop(0.55, `rgba(255,255,255,${(alpha * 0.08).toFixed(3)})`);
     g.addColorStop(1,    "rgba(255,255,255,0)");
     heatCtx.fillStyle = g;
     heatCtx.beginPath();
@@ -342,21 +342,23 @@ function drawHeatmap(points, radius) {
   const colorCtx = colorCanvas.getContext("2d");
   const colorData = colorCtx.createImageData(W, H);
 
-  // Find actual max intensity to normalize dynamically (prevents white blowout)
-  let maxVal = 1;
-  for (let i = 0; i < raw.data.length; i += 4) {
-    if (raw.data[i] > maxVal) maxVal = raw.data[i];
+  // Normalize using 85th-percentile so colors spread across the full thermal range
+  const samples = [];
+  for (let i = 0; i < raw.data.length; i += 16) {
+    if (raw.data[i] > 2) samples.push(raw.data[i]);
   }
-  const norm = Math.max(maxVal * 0.85, 60);
+  samples.sort((a, b) => a - b);
+  const p85 = samples[Math.floor(samples.length * 0.85)] || 30;
+  const norm = Math.max(p85, 20);
 
   for (let i = 0; i < raw.data.length; i += 4) {
     const t = Math.min(0.98, raw.data[i] / norm);
-    if (t < 0.025) { colorData.data[i + 3] = 0; continue; }
+    if (t < 0.03) { colorData.data[i + 3] = 0; continue; }
     const [cr, cg, cb] = thermalColor(t);
     colorData.data[i]     = cr;
     colorData.data[i + 1] = cg;
     colorData.data[i + 2] = cb;
-    colorData.data[i + 3] = Math.min(195, Math.round(t * 195));
+    colorData.data[i + 3] = Math.min(185, Math.round(t * 185));
   }
   colorCtx.putImageData(colorData, 0, 0);
 
