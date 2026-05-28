@@ -14,6 +14,7 @@ const ui = {
   pageUrlInput: document.getElementById("page-url"),
   loadImageUrlBtn: document.getElementById("load-image-url-btn"),
   loadPageUrlBtn: document.getElementById("load-page-url-btn"),
+  domOnlyBtn: document.getElementById("dom-only-btn"),
   predictBtn: document.getElementById("predict-btn"),
   downloadBtn: document.getElementById("download-btn"),
   exportPdfBtn: document.getElementById("export-pdf-btn"),
@@ -89,7 +90,7 @@ function proxiedImageUrl(remoteUrl) {
 // ── Loading state ────────────────────────────────────────────────────────────
 
 function setLoading(active) {
-  [ui.loadImageUrlBtn, ui.loadPageUrlBtn, ui.predictBtn].forEach((btn) => {
+  [ui.loadImageUrlBtn, ui.loadPageUrlBtn, ui.domOnlyBtn, ui.predictBtn].forEach((btn) => {
     btn.disabled = active;
   });
 }
@@ -592,6 +593,21 @@ async function loadPreviewFromCandidates(candidates, pageUrl) {
   return null;
 }
 
+async function loadDomOnly() {
+  const pageUrl = ui.pageUrlInput.value.trim();
+  if (!pageUrl) return;
+  if (!state.image) {
+    ui.outputJson.textContent = "請先上傳截圖（步驟 1），再按「只抓 DOM 訊號」。";
+    return;
+  }
+  ui.outputJson.textContent = "抓取 DOM 訊號中...";
+  const domData = await fetchDomSignals(pageUrl);
+  state.domSignals = domData.signals;
+  state.domSummary = domData.summary;
+  updateSliderLabels();
+  ui.outputJson.textContent = `DOM 訊號已載入（${state.domSignals.length} 個），截圖保留不變，請按「生成預測」。`;
+}
+
 async function loadPageWithDom() {
   const pageUrl = ui.pageUrlInput.value.trim();
   if (!pageUrl) return;
@@ -651,6 +667,17 @@ function wireEvents() {
       await loadPageWithDom();
     } catch (err) {
       ui.outputJson.textContent = `網址載入失敗：${err.message}`;
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  ui.domOnlyBtn.addEventListener("click", async () => {
+    setLoading(true);
+    try {
+      await loadDomOnly();
+    } catch (err) {
+      ui.outputJson.textContent = `DOM 抓取失敗：${err.message}`;
     } finally {
       setLoading(false);
     }

@@ -35,9 +35,12 @@
           <label class="label" for="page-url">3) 網頁網址（DOM 融合）</label>
           <div class="row">
             <input id="page-url" type="url" placeholder="https://your-landing-page.com" />
-            <button id="load-page-url-btn">載入網址並抓 DOM</button>
+            <button id="load-page-url-btn">載入網址並抓截圖</button>
+            <button id="dom-only-btn" class="ghost">只抓 DOM 訊號</button>
           </div>
-          <p class="hint">貼網址時會呼叫後端 API 抓取可互動元素訊號。</p>
+          <p class="hint">
+            若頁面有 GDPR 同意框：請先手動截圖（截圖前關掉彈窗），用上方「上傳圖片」貼入，再按「只抓 DOM 訊號」輸入同一網址，最後按「生成預測」。
+          </p>
         </div>
       </section>
 
