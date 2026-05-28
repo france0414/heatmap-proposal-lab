@@ -13,9 +13,47 @@ function scoreSignal(kind, text, attrs) {
   return Math.min(10, score);
 }
 
+function detectSections(html) {
+  const lower = html.toLowerCase();
+  return {
+    headerEnd: Math.max(
+      lower.lastIndexOf("</header>"),
+      lower.lastIndexOf("</nav>"),
+      0
+    ),
+    footerStart: (() => {
+      const idx = lower.indexOf("<footer");
+      return idx > 0 ? idx : Math.floor(html.length * 0.88);
+    })(),
+    heroEnd: (() => {
+      for (const kw of ["hero", "banner", "jumbotron", "slider", "carousel"]) {
+        const i = lower.indexOf(kw);
+        if (i > 0) {
+          const close = lower.indexOf("</section>", i);
+          if (close > 0) return close;
+        }
+      }
+      return Math.floor(html.length * 0.2);
+    })(),
+  };
+}
+
+function xHintFromContext(index, attrs, sections, html) {
+  const lower = (attrs || "").toLowerCase();
+  if (index < sections.headerEnd) return "nav";
+  if (/hero|banner|jumbotron|cta|call-to-action/.test(lower)) return "center";
+  if (/\bcol-\w*-?[1-4]\b|left|float-left/.test(lower)) return "left";
+  if (/\bcol-\w*-?[8-9]\b|\bcol-\w*-1[0-2]\b|right|float-right/.test(lower)) return "right";
+  if (index < sections.heroEnd) return "center";
+  return "center";
+}
+
 function extractSignals(html) {
   const signals = [];
   const totalLen = Math.max(1, html.length);
+  const sections = detectSections(html);
+  const mainLen = Math.max(1, sections.footerStart - sections.headerEnd);
+
   const buttonRe = /<(button)\b([^>]*)>([\s\S]*?)<\/button>/gi;
   const linkRe = /<(a)\b([^>]*)>([\s\S]*?)<\/a>/gi;
   const inputRe = /<(input)\b([^>]*)\/?>/gi;
@@ -24,11 +62,22 @@ function extractSignals(html) {
     const text = stripTags(body || "");
     const attrsText = stripTags(attrs || "");
     const priority = scoreSignal(kind, text, attrsText);
+
+    let positionRatio;
+    if (index < sections.headerEnd) {
+      positionRatio = (index / Math.max(1, sections.headerEnd)) * 0.06;
+    } else if (index > sections.footerStart) {
+      positionRatio = 0.92 + ((index - sections.footerStart) / Math.max(1, totalLen - sections.footerStart)) * 0.08;
+    } else {
+      positionRatio = 0.06 + ((index - sections.headerEnd) / mainLen) * 0.86;
+    }
+
     signals.push({
       kind,
       text: text || attrsText || kind,
       priority,
-      positionRatio: index / totalLen,
+      positionRatio,
+      xHint: xHintFromContext(index, attrs, sections, html),
     });
   }
 

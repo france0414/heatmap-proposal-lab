@@ -198,17 +198,35 @@ function generateDomHotspots(width, height, signals, count) {
   if (!signals.length) return [];
   const ranked = [...signals].sort((a, b) => (b.priority || 0) - (a.priority || 0)).slice(0, count * 2);
 
-  return ranked.map((s, idx) => {
-    const ratio = typeof s.positionRatio === "number" ? s.positionRatio : idx / Math.max(1, ranked.length - 1);
-    const y = Math.round(height * (0.08 + 0.84 * Math.min(1, Math.max(0, ratio))));
-    let x = width * 0.52;
-    if (s.kind === "a") x = width * 0.42;
-    if (s.kind === "nav") x = width * 0.62;
-    if (s.priority >= 5) x = width * 0.5;
+  // Track nav index to spread nav items horizontally
+  let navCount = 0;
+  const navTotal = ranked.filter((s) => s.xHint === "nav").length;
+
+  return ranked.map((s) => {
+    const ratio = typeof s.positionRatio === "number" ? s.positionRatio : 0.5;
+    const y = Math.round(height * Math.min(0.97, Math.max(0.02, ratio)));
+
+    let x;
+    switch (s.xHint) {
+      case "nav":
+        // Spread nav items evenly across the top bar
+        x = width * (0.1 + (navCount++ / Math.max(1, navTotal - 1)) * 0.8);
+        break;
+      case "left":
+        x = width * (0.18 + Math.random() * 0.12);
+        break;
+      case "right":
+        x = width * (0.7 + Math.random() * 0.12);
+        break;
+      default:
+        // Center with slight spread based on priority
+        x = width * (0.38 + Math.random() * 0.24);
+    }
+
     return {
-      x: Math.round(x + (Math.random() - 0.5) * width * 0.08),
-      y: Math.round(y + (Math.random() - 0.5) * height * 0.05),
-      score: Math.min(1.4, 0.65 + (s.priority || 0) * 0.12),
+      x: Math.round(Math.max(20, Math.min(width - 20, x))),
+      y: Math.round(y + (Math.random() - 0.5) * height * 0.02),
+      score: Math.min(1.4, 0.7 + (s.priority || 0) * 0.12),
       source: "dom",
       label: s.text || s.kind || "element",
     };
