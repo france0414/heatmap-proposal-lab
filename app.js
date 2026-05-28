@@ -10,9 +10,7 @@ const state = {
 
 const ui = {
   fileInput: document.getElementById("image-file"),
-  imageUrlInput: document.getElementById("image-url"),
   pageUrlInput: document.getElementById("page-url"),
-  loadImageUrlBtn: document.getElementById("load-image-url-btn"),
   loadPageUrlBtn: document.getElementById("load-page-url-btn"),
   domOnlyBtn: document.getElementById("dom-only-btn"),
   pasteBtn: document.getElementById("paste-btn"),
@@ -91,7 +89,7 @@ function proxiedImageUrl(remoteUrl) {
 // ── Loading state ────────────────────────────────────────────────────────────
 
 function setLoading(active) {
-  [ui.loadImageUrlBtn, ui.loadPageUrlBtn, ui.domOnlyBtn, ui.predictBtn].forEach((btn) => {
+  [ui.loadPageUrlBtn, ui.domOnlyBtn, ui.pasteBtn, ui.predictBtn].forEach((btn) => {
     btn.disabled = active;
   });
 }
@@ -665,23 +663,6 @@ function wireEvents() {
       await setImageFromFile(file);
     } catch (err) {
       ui.outputJson.textContent = `載入錯誤：${err.message}`;
-    }
-  });
-
-  ui.loadImageUrlBtn.addEventListener("click", async () => {
-    const url = ui.imageUrlInput.value.trim();
-    if (!url) return;
-    setLoading(true);
-    try {
-      state.domSignals = [];
-      state.domSummary = null;
-      await setImageFromUrl(proxiedImageUrl(url), `圖片網址：${url}`);
-      updateSliderLabels();
-      ui.outputJson.textContent = "圖片網址已載入，請按「生成預測」。";
-    } catch (err) {
-      ui.outputJson.textContent = `圖片網址載入失敗：${err.message}`;
-    } finally {
-      setLoading(false);
     }
   });
 

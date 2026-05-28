@@ -23,27 +23,20 @@
       <section class="card">
         <h2>輸入來源</h2>
         <div class="stack">
-          <label class="label" for="image-file">1) 上傳或貼上截圖</label>
+          <label class="label">1) 截圖來源</label>
           <div class="row">
             <input id="image-file" type="file" accept="image/*" />
             <button id="paste-btn" class="ghost">貼上截圖 (Ctrl+V)</button>
           </div>
+          <p class="hint">有 GDPR 彈窗或測試機？在瀏覽器關掉彈窗後截圖，再貼上或上傳。</p>
 
-          <label class="label" for="image-url">2) 圖片網址</label>
-          <div class="row">
-            <input id="image-url" type="url" placeholder="https://example.com/sample.png" />
-            <button id="load-image-url-btn">載入圖片網址</button>
-          </div>
-
-          <label class="label" for="page-url">3) 網頁網址（DOM 融合）</label>
+          <label class="label" for="page-url">2) 網頁網址（DOM 融合）</label>
           <div class="row">
             <input id="page-url" type="url" placeholder="https://your-landing-page.com" />
             <button id="load-page-url-btn">載入網址並抓截圖</button>
             <button id="dom-only-btn" class="ghost">只抓 DOM 訊號</button>
           </div>
-          <p class="hint">
-            若頁面有 GDPR 同意框：請先手動截圖（截圖前關掉彈窗），用上方「上傳圖片」貼入，再按「只抓 DOM 訊號」輸入同一網址，最後按「生成預測」。
-          </p>
+          <p class="hint">貼網址後按「只抓 DOM 訊號」可搭配手動截圖一起使用。</p>
         </div>
       </section>
 
