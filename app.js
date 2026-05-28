@@ -1,7 +1,7 @@
 const state = {
   image: null,
   report: null,
-  sourceLabel: "Unknown Source",
+  sourceLabel: "未知來源",
   lastPoints: [],
 };
 
@@ -25,9 +25,9 @@ const ui = {
 };
 
 function updateSliderLabels() {
-  ui.hotspotCountLabel.textContent = `${ui.hotspotCount.value} hotspots`;
-  ui.heatRadiusLabel.textContent = `${ui.heatRadius.value}px radius`;
-  ui.centerBiasLabel.textContent = `${ui.centerBias.value}% center bias`;
+  ui.hotspotCountLabel.textContent = `${ui.hotspotCount.value} 個熱點`;
+  ui.heatRadiusLabel.textContent = `${ui.heatRadius.value}px 半徑`;
+  ui.centerBiasLabel.textContent = `${ui.centerBias.value}% 中心偏好`;
 }
 
 function createCanvasContext() {
@@ -55,7 +55,7 @@ function createImageFromUrl(src) {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Failed to load image"));
+    img.onerror = () => reject(new Error("載入圖片失敗"));
     img.src = src;
   });
 }
@@ -65,14 +65,14 @@ function generateWebsitePreviewUrl(url) {
   return `https://image.thum.io/get/width/1400/noanimate/${encoded}`;
 }
 
-async function setImageFromUrl(url, label = "Image URL") {
+async function setImageFromUrl(url, label = "圖片網址") {
   const img = await createImageFromUrl(url);
   state.image = img;
   state.report = null;
   state.lastPoints = [];
   state.sourceLabel = label;
   drawBaseImage();
-  ui.outputJson.textContent = "Image loaded. Click 'Generate prediction heatmap'.";
+  ui.outputJson.textContent = "圖片已載入，請按「生成預測」。";
 }
 
 function setImageFromFile(file) {
@@ -80,13 +80,13 @@ function setImageFromFile(file) {
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        await setImageFromUrl(reader.result, `Uploaded file: ${file.name}`);
+        await setImageFromUrl(reader.result, `上傳檔案：${file.name}`);
         resolve();
       } catch (err) {
         reject(err);
       }
     };
-    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.onerror = () => reject(new Error("讀取檔案失敗"));
     reader.readAsDataURL(file);
   });
 }
@@ -142,9 +142,9 @@ function drawHeatmap(points, radius) {
 }
 
 function levelFromValue(v) {
-  if (v >= 75) return "High";
-  if (v >= 45) return "Medium";
-  return "Low";
+  if (v >= 75) return "高";
+  if (v >= 45) return "中";
+  return "低";
 }
 
 function buildProposalReport(points) {
@@ -154,9 +154,9 @@ function buildProposalReport(points) {
   const ctaVisibility = Math.min(100, Math.round((top[0]?.score || 0) * 92));
   const misTapRisk = Math.max(0, 100 - ctaVisibility + Math.round(Math.random() * 12));
 
-  const summary = `Predicted focus ${
-    ctaVisibility >= 65 ? "aligns with the primary call-to-action" : "is spread away from the primary call-to-action"
-  }. Recommend adjusting CTA contrast and spacing before client review.`;
+  const summary = `預測焦點${
+    ctaVisibility >= 65 ? "已對齊主要 CTA" : "與主要 CTA 有分散現象"
+  }，建議提案前先調整 CTA 對比與元件間距。`;
 
   return {
     generatedAt: new Date().toISOString(),
@@ -179,16 +179,16 @@ function buildProposalReport(points) {
     })),
     recommendations: [
       {
-        issue: "Primary CTA may not dominate visual hierarchy",
-        recommendation: "Increase color contrast and keep CTA in top-center scanning zone",
+        issue: "主要 CTA 的視覺主導性不足",
+        recommendation: "提高 CTA 色彩對比，並放在上方偏中央掃視區",
       },
       {
-        issue: "Potential mis-tap around dense interaction areas",
-        recommendation: "Set minimum tappable size to 44x44 and increase spacing between buttons",
+        issue: "互動區過密，可能增加誤觸",
+        recommendation: "可點擊區建議至少 44x44，並增加按鈕間距",
       },
       {
-        issue: "Competing focal points above the fold",
-        recommendation: "Reduce decorative noise and keep one clear action path",
+        issue: "首屏焦點競爭，路徑不夠單一",
+        recommendation: "降低裝飾干擾，保留清楚單一路徑",
       },
     ],
   };
@@ -222,7 +222,7 @@ function drawRiskOverlayImage(points) {
 
 function exportProposalPdf() {
   if (!state.image || !state.report) {
-    ui.outputJson.textContent = "Please generate prediction first, then export PDF.";
+    ui.outputJson.textContent = "請先生成預測，再匯出 PDF。";
     return;
   }
 
@@ -242,7 +242,7 @@ function exportProposalPdf() {
   <html>
     <head>
       <meta charset="UTF-8" />
-      <title>Proposal Report</title>
+      <title>熱點提案報告</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 24px; color: #122b26; }
         h1, h2 { margin: 0 0 8px; }
@@ -256,33 +256,33 @@ function exportProposalPdf() {
       </style>
     </head>
     <body>
-      <h1>Heatmap Proposal Report</h1>
-      <div class="meta">Source: ${state.sourceLabel} | Generated: ${new Date(r.generatedAt).toLocaleString()}</div>
+      <h1>熱點提案報告</h1>
+      <div class="meta">來源：${state.sourceLabel} | 產生時間：${new Date(r.generatedAt).toLocaleString()}</div>
 
-      <h2>Executive Snapshot</h2>
+      <h2>摘要總覽</h2>
       <div class="grid">
-        <div class="card"><div class="label">Attention Score</div><div class="value">${r.executiveSnapshot.attentionScore}</div></div>
-        <div class="card"><div class="label">Mis-tap Risk</div><div class="value">${r.executiveSnapshot.misTapRiskLevel}</div></div>
-        <div class="card"><div class="label">CTA Visibility</div><div class="value">${r.executiveSnapshot.ctaVisibilityLevel}</div></div>
+        <div class="card"><div class="label">注意力分數</div><div class="value">${r.executiveSnapshot.attentionScore}</div></div>
+        <div class="card"><div class="label">誤觸風險</div><div class="value">${r.executiveSnapshot.misTapRiskLevel}</div></div>
+        <div class="card"><div class="label">CTA 可見度</div><div class="value">${r.executiveSnapshot.ctaVisibilityLevel}</div></div>
       </div>
-      <div class="list"><strong>Conclusion:</strong> ${r.executiveSnapshot.conclusion}</div>
+      <div class="list"><strong>結論：</strong>${r.executiveSnapshot.conclusion}</div>
 
-      <h2>Three Key Metrics</h2>
+      <h2>三大指標</h2>
       <div class="grid">
-        <div class="card"><div class="label">Primary CTA Focus Share</div><div class="value">${r.keyMetrics.primaryCtaFocusShare}</div></div>
-        <div class="card"><div class="label">High Risk Interactive Elements</div><div class="value">${r.keyMetrics.highRiskInteractiveElements}</div></div>
-        <div class="card"><div class="label">Estimated Mis-tap Rate</div><div class="value">${r.keyMetrics.estimatedMisTapRate}</div></div>
+        <div class="card"><div class="label">主 CTA 焦點占比</div><div class="value">${r.keyMetrics.primaryCtaFocusShare}</div></div>
+        <div class="card"><div class="label">高風險互動元件數</div><div class="value">${r.keyMetrics.highRiskInteractiveElements}</div></div>
+        <div class="card"><div class="label">預估誤觸率</div><div class="value">${r.keyMetrics.estimatedMisTapRate}</div></div>
       </div>
 
-      <h2>Visual Output</h2>
-      <div class="label">1) Original</div>
+      <h2>視覺輸出</h2>
+      <div class="label">1) 原始畫面</div>
       <img src="${originalPng}" />
-      <div class="label">2) Heatmap Overlay</div>
+      <div class="label">2) 熱點疊圖</div>
       <img src="${heatmapPng}" />
-      <div class="label">3) Risk Markers</div>
+      <div class="label">3) 風險標記</div>
       <img src="${riskPng}" />
 
-      <h2>Recommendations</h2>
+      <h2>優化建議</h2>
       ${r.recommendations
         .map((item, idx) => `<div class="list"><strong>${idx + 1}. ${item.issue}</strong><br/>${item.recommendation}</div>`)
         .join("")}
@@ -291,7 +291,7 @@ function exportProposalPdf() {
 
   const win = window.open("", "_blank");
   if (!win) {
-    ui.outputJson.textContent = "Popup blocked. Please allow popups to export PDF.";
+    ui.outputJson.textContent = "瀏覽器封鎖彈出視窗，請允許後再匯出 PDF。";
     return;
   }
   win.document.open();
@@ -303,7 +303,7 @@ function exportProposalPdf() {
 
 function predict() {
   if (!state.image) {
-    ui.outputJson.textContent = "Please load an image or page URL first.";
+    ui.outputJson.textContent = "請先載入圖片或網頁網址。";
     return;
   }
 
@@ -337,7 +337,7 @@ function wireEvents() {
     try {
       await setImageFromFile(file);
     } catch (err) {
-      ui.outputJson.textContent = `Load error: ${err.message}`;
+      ui.outputJson.textContent = `載入錯誤：${err.message}`;
     }
   });
 
@@ -345,9 +345,9 @@ function wireEvents() {
     const url = ui.imageUrlInput.value.trim();
     if (!url) return;
     try {
-      await setImageFromUrl(url, `Image URL: ${url}`);
+      await setImageFromUrl(url, `圖片網址：${url}`);
     } catch (err) {
-      ui.outputJson.textContent = `Image URL load failed: ${err.message}`;
+      ui.outputJson.textContent = `圖片網址載入失敗：${err.message}`;
     }
   });
 
@@ -355,9 +355,9 @@ function wireEvents() {
     const pageUrl = ui.pageUrlInput.value.trim();
     if (!pageUrl) return;
     try {
-      await setImageFromUrl(generateWebsitePreviewUrl(pageUrl), `Page URL: ${pageUrl}`);
+      await setImageFromUrl(generateWebsitePreviewUrl(pageUrl), `網頁網址：${pageUrl}`);
     } catch (err) {
-      ui.outputJson.textContent = `Page screenshot load failed: ${err.message}`;
+      ui.outputJson.textContent = `網頁縮圖載入失敗：${err.message}`;
     }
   });
 
@@ -382,7 +382,7 @@ function wireEvents() {
 function bootstrap() {
   updateSliderLabels();
   wireEvents();
-  ui.outputJson.textContent = "Ready. Load an image or page URL to start.";
+  ui.outputJson.textContent = "系統已就緒，請先載入圖片或網址開始。";
 }
 
 bootstrap();

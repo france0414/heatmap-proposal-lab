@@ -1,10 +1,11 @@
 :root {
-  --bg: #f6f5ed;
-  --panel: #fffef7;
-  --ink: #122b26;
-  --muted: #5b6a64;
-  --accent: #d85d2c;
-  --line: #d8ded4;
+  --bg: #0b0f14;
+  --bg-2: #111821;
+  --panel: #151e29;
+  --ink: #ecf2ff;
+  --muted: #9eb0c8;
+  --accent: #ff7a3c;
+  --line: #2b3949;
 }
 
 * {
@@ -16,8 +17,8 @@ body {
   color: var(--ink);
   font-family: "IBM Plex Sans", "Noto Sans TC", sans-serif;
   background:
-    radial-gradient(circle at 0% 0%, #fff0d7, transparent 36%),
-    radial-gradient(circle at 100% 100%, #dff1e8, transparent 34%),
+    radial-gradient(circle at 0% 0%, #1e2a3a, transparent 38%),
+    radial-gradient(circle at 100% 100%, #1a2330, transparent 36%),
     var(--bg);
 }
 
@@ -66,7 +67,7 @@ input[type="file"]::file-selector-button {
 }
 
 .ghost {
-  background: #fff;
+  background: #0f151e;
   color: var(--ink);
   border: 1px solid var(--line);
 }
@@ -111,7 +112,7 @@ input[type="url"] {
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 10px 12px;
-  background: #fff;
+  background: var(--bg-2);
   color: var(--ink);
 }
 
@@ -124,7 +125,7 @@ input[type="range"] {
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: auto;
-  background: #fff;
+  background: #0e151d;
   min-height: 200px;
 }
 
@@ -139,13 +140,13 @@ input[type="range"] {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #fcfdf8;
+  background: #0f151e;
   padding: 10px;
   min-height: 200px;
   white-space: pre-wrap;
   overflow-x: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #263b35;
+  color: #cde0ff;
 }
 
 .footer {
