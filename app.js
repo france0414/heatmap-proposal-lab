@@ -65,8 +65,21 @@ function createImageFromUrl(src) {
   });
 }
 
-function generateWebsitePreviewUrl(url) {
-  return `https://image.thum.io/get/width/1400/noanimate/${encodeURIComponent(url)}`;
+function makePlaceholderImageDataUrl(pageUrl) {
+  const title = `網址預覽載入失敗`;
+  const escaped = pageUrl.replace(/[<>&"]/g, "");
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900">
+  <rect width="100%" height="100%" fill="#0f1620"/>
+  <text x="70" y="140" fill="#e6edf9" font-size="48" font-family="Arial">Heatmap Preview Fallback</text>
+  <text x="70" y="220" fill="#a6b4cc" font-size="30" font-family="Arial">${title}</text>
+  <text x="70" y="290" fill="#7f91ad" font-size="24" font-family="Arial">${escaped}</text>
+</svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function proxiedImageUrl(remoteUrl) {
+  return `/api/image-proxy?url=${encodeURIComponent(remoteUrl)}`;
 }
 
 async function fetchDomSignals(pageUrl) {
@@ -76,7 +89,7 @@ async function fetchDomSignals(pageUrl) {
   return {
     signals: data.signals || [],
     summary: data.summary || null,
-    screenshotUrl: data.screenshotUrl || generateWebsitePreviewUrl(pageUrl),
+    previewCandidates: data.previewCandidates || [],
   };
 }
 
@@ -236,7 +249,7 @@ function buildProposalReport(points) {
       ctaVisibilityLevel: levelFromValue(ctaVisibility),
       conclusion:
         domCount > 0
-          ? "本次已使用 DOM + 圖片融合，CTA 與可點擊區覆蓋更接近真實互動。"
+          ? "本次已使用 DOM + 圖片融合，CTA 覆蓋更接近真實互動。"
           : "本次為純圖片預測，建議加上網址 DOM 融合可提高準確度。",
     },
     keyMetrics: {
@@ -254,18 +267,9 @@ function buildProposalReport(points) {
       label: p.label || null,
     })),
     recommendations: [
-      {
-        issue: "主要 CTA 的視覺主導性不足",
-        recommendation: "提高 CTA 對比，並保持上方偏中央的操作路徑",
-      },
-      {
-        issue: "互動區過密，可能增加誤觸",
-        recommendation: "點擊區至少 44x44，並增加按鈕間距",
-      },
-      {
-        issue: "首屏焦點競爭，路徑不夠單一",
-        recommendation: "降低裝飾干擾，保留明確單一 CTA",
-      },
+      { issue: "主要 CTA 視覺主導性不足", recommendation: "提高 CTA 對比，放在上方偏中央操作路徑" },
+      { issue: "互動區過密，可能增加誤觸", recommendation: "點擊區至少 44x44，並增加按鈕間距" },
+      { issue: "首屏焦點競爭，路徑不夠單一", recommendation: "降低裝飾干擾，保留明確單一 CTA" },
     ],
     domSummary: state.domSummary,
   };
@@ -293,7 +297,6 @@ function drawRiskOverlayImage(points) {
     ctx.fillText(String(idx + 1), p.x - 4, p.y + 5);
     ctx.fillStyle = "rgba(14,21,30,0.78)";
   });
-
   return overlay.toDataURL("image/png");
 }
 
@@ -315,8 +318,7 @@ function exportProposalPdf() {
   const riskPng = drawRiskOverlayImage(state.lastPoints);
 
   const html = `
-  <!doctype html>
-  <html><head><meta charset="UTF-8" /><title>熱點提案報告</title>
+  <!doctype html><html><head><meta charset="UTF-8" /><title>熱點提案報告</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 24px; color: #122b26; }
     h1, h2 { margin: 0 0 8px; }
@@ -327,8 +329,7 @@ function exportProposalPdf() {
     .value { font-size: 20px; font-weight: 700; margin-top: 2px; }
     img { width: 100%; border: 1px solid #d8ded4; border-radius: 8px; margin: 8px 0 14px; }
     .list { border: 1px solid #d8ded4; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
-  </style></head>
-  <body>
+  </style></head><body>
     <h1>熱點提案報告</h1>
     <div class="meta">來源：${state.sourceLabel} | 產生時間：${new Date(r.generatedAt).toLocaleString()}</div>
     <h2>摘要總覽</h2>
@@ -348,8 +349,6 @@ function exportProposalPdf() {
     <div class="label">1) 原始畫面</div><img src="${originalPng}" />
     <div class="label">2) 熱點疊圖</div><img src="${heatmapPng}" />
     <div class="label">3) 風險標記</div><img src="${riskPng}" />
-    <h2>優化建議</h2>
-    ${r.recommendations.map((item, idx) => `<div class="list"><strong>${idx + 1}. ${item.issue}</strong><br/>${item.recommendation}</div>`).join("")}
   </body></html>`;
 
   const win = window.open("", "_blank");
@@ -393,15 +392,32 @@ function downloadHeatmap() {
   link.click();
 }
 
+async function loadPreviewFromCandidates(candidates, pageUrl) {
+  const list = Array.isArray(candidates) ? candidates : [];
+  for (const c of list) {
+    try {
+      await setImageFromUrl(proxiedImageUrl(c), `網頁網址：${pageUrl}`);
+      return true;
+    } catch {
+      // Try next candidate
+    }
+  }
+  await setImageFromUrl(makePlaceholderImageDataUrl(pageUrl), `網頁網址：${pageUrl}（fallback）`);
+  return false;
+}
+
 async function loadPageWithDom() {
   const pageUrl = ui.pageUrlInput.value.trim();
   if (!pageUrl) return;
   ui.outputJson.textContent = "載入網址與 DOM 訊號中...";
+
   const domData = await fetchDomSignals(pageUrl);
   state.domSignals = domData.signals;
   state.domSummary = domData.summary;
-  await setImageFromUrl(domData.screenshotUrl, `網頁網址：${pageUrl}`);
-  ui.outputJson.textContent = `網址已載入，抓到 ${state.domSignals.length} 個 DOM 互動訊號，請按「生成預測」。`;
+  const ok = await loadPreviewFromCandidates(domData.previewCandidates, pageUrl);
+  ui.outputJson.textContent = ok
+    ? `網址已載入，抓到 ${state.domSignals.length} 個 DOM 訊號，請按「生成預測」。`
+    : `DOM 已抓取 (${state.domSignals.length} 個)，但外站圖片被擋，已使用 fallback 畫面。`;
 }
 
 function wireEvents() {
@@ -426,7 +442,7 @@ function wireEvents() {
     try {
       state.domSignals = [];
       state.domSummary = null;
-      await setImageFromUrl(url, `圖片網址：${url}`);
+      await setImageFromUrl(proxiedImageUrl(url), `圖片網址：${url}`);
       ui.outputJson.textContent = "圖片網址已載入，請按「生成預測」。";
     } catch (err) {
       ui.outputJson.textContent = `圖片網址載入失敗：${err.message}`;

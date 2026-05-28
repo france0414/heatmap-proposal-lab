@@ -45,6 +45,35 @@ function extractSignals(html) {
   return merged;
 }
 
+function uniqueUrls(items) {
+  const out = [];
+  const seen = new Set();
+  for (const item of items) {
+    if (!item || !/^https?:\/\//i.test(item)) continue;
+    if (seen.has(item)) continue;
+    seen.add(item);
+    out.push(item);
+  }
+  return out;
+}
+
+function pickPreviewCandidates(html, pageUrl) {
+  const head = html.slice(0, 200000);
+  const candidates = [];
+  const metaRe = /<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["'][^>]*>/gi;
+  let m;
+  while ((m = metaRe.exec(head))) {
+    try {
+      const abs = new URL(m[1], pageUrl).toString();
+      candidates.push(abs);
+    } catch {
+      // ignore malformed URL
+    }
+  }
+  candidates.push(`https://image.thum.io/get/width/1400/noanimate/${encodeURIComponent(pageUrl)}`);
+  return uniqueUrls(candidates);
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Only GET is supported" });
@@ -71,7 +100,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       signals,
       summary,
-      screenshotUrl: `https://image.thum.io/get/width/1400/noanimate/${encodeURIComponent(url)}`,
+      previewCandidates: pickPreviewCandidates(html, url),
     });
   } catch (error) {
     return res.status(500).json({
