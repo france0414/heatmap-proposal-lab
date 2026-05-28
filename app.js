@@ -96,6 +96,34 @@ function setLoading(active) {
 
 // ── Image saliency analysis ──────────────────────────────────────────────────
 
+async function fetchSaliencyFromApi(width, height) {
+  try {
+    const dataUrl = ui.canvas.toDataURL("image/jpeg", 0.85);
+    const res = await fetch("/api/saliency", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: dataUrl }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.points?.length) return null;
+
+    const scaleX = width / data.width;
+    const scaleY = height / data.height;
+    const canvasStep = Math.max(6, Math.round(data.step * (scaleX + scaleY) / 2));
+    const map = new Map();
+    for (const p of data.points) {
+      const cx = Math.round((p.x * scaleX) / canvasStep) * canvasStep;
+      const cy = Math.round((p.y * scaleY) / canvasStep) * canvasStep;
+      const key = `${cx},${cy}`;
+      if ((map.get(key) || 0) < p.s) map.set(key, p.s);
+    }
+    return { map, step: canvasStep };
+  } catch {
+    return null;
+  }
+}
+
 function buildSaliencyMap(width, height) {
   const ctx = createCanvasContext();
   let imageData;
@@ -527,7 +555,7 @@ function exportProposalPdf() {
 
 // ── Core actions ─────────────────────────────────────────────────────────────
 
-function predict() {
+async function predict() {
   if (!state.image) {
     ui.outputJson.textContent = "請先載入圖片或網址。";
     return;
@@ -538,9 +566,12 @@ function predict() {
   const centerBias = Number(ui.centerBias.value);
   const domWeight = Number(ui.domWeight.value);
 
-  // Draw base image first so getImageData can read actual pixels
   drawBaseImage();
-  state.saliencyMap = buildSaliencyMap(ui.canvas.width, ui.canvas.height);
+  ui.outputJson.textContent = "圖片分析中（Sobel 邊緣偵測）...";
+
+  const apiSaliency = await fetchSaliencyFromApi(ui.canvas.width, ui.canvas.height);
+  state.saliencyMap = apiSaliency || buildSaliencyMap(ui.canvas.width, ui.canvas.height);
+  const saliencySource = apiSaliency ? "Python API" : "Canvas fallback";
 
   const visualPoints = generateVisualHotspots(ui.canvas.width, ui.canvas.height, count, centerBias);
   const domPoints = generateDomHotspots(ui.canvas.width, ui.canvas.height, state.domSignals, count);
@@ -549,6 +580,7 @@ function predict() {
   drawHeatmap(points, radius);
   state.lastPoints = points;
   state.report = buildProposalReport(points);
+  state.report._saliencySource = saliencySource;
   ui.outputJson.textContent = formatReport(state.report);
 }
 
@@ -739,7 +771,16 @@ function wireEvents() {
     }
   });
 
-  ui.predictBtn.addEventListener("click", predict);
+  ui.predictBtn.addEventListener("click", async () => {
+    setLoading(true);
+    try {
+      await predict();
+    } catch (err) {
+      ui.outputJson.textContent = `分析失敗：${err.message}`;
+    } finally {
+      setLoading(false);
+    }
+  });
   ui.downloadBtn.addEventListener("click", downloadHeatmap);
   ui.exportPdfBtn.addEventListener("click", exportProposalPdf);
 }
