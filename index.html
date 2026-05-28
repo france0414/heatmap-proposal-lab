@@ -3,17 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>圖片熱點預測器</title>
+    <title>熱點提案分析儀</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div>
-        <h1>圖片熱點預測器</h1>
-        <p>提案模式：支援圖片預測與網址 DOM 融合預測。</p>
+        <h1>熱點提案分析儀</h1>
+        <p>貼上 AI 熱點圖 ＋ 輸入網址 → 自動疊加 DOM CTA 分析，產出行銷提案報告。</p>
       </div>
       <div class="actions">
-        <button id="predict-btn">生成預測</button>
+        <button id="predict-btn">疊加 DOM 分析</button>
         <button id="download-btn" class="ghost">下載 PNG</button>
         <button id="export-pdf-btn" class="ghost">匯出提案 PDF</button>
         <button id="marketing-kit-btn" class="ghost">行銷套件 Kit</button>
@@ -24,47 +24,47 @@
       <section class="card">
         <h2>輸入來源</h2>
         <div class="stack">
-          <label class="label">1) 截圖來源</label>
+          <label class="label">1) AI 熱點圖（建議先用 Clueify / Visual Eyes 產生）</label>
           <div class="row">
             <input id="image-file" type="file" accept="image/*" />
-            <button id="paste-btn" class="ghost">貼上截圖 (Ctrl+V)</button>
+            <button id="paste-btn" class="ghost">貼上圖片 (Ctrl+V)</button>
           </div>
-          <p class="hint">有 GDPR 彈窗或測試機？在瀏覽器關掉彈窗後截圖，再貼上或上傳。</p>
+          <p class="hint">推薦流程：在 Figma 用 Clueify 或 Visual Eyes 跑 AI 熱點圖 → 截圖 → 貼上。沒有 Figma？直接貼網站截圖也可以。</p>
 
-          <label class="label" for="page-url">2) 網頁網址（DOM 融合）</label>
+          <label class="label" for="page-url">2) 網頁網址（抓 DOM CTA 訊號）</label>
           <div class="row">
             <input id="page-url" type="url" placeholder="https://your-landing-page.com" />
             <button id="load-page-url-btn">載入網址並抓截圖</button>
             <button id="dom-only-btn" class="ghost">只抓 DOM 訊號</button>
           </div>
-          <p class="hint">貼網址後按「只抓 DOM 訊號」可搭配手動截圖一起使用。</p>
+          <p class="hint">輸入網址後按「只抓 DOM 訊號」，系統會找出所有按鈕、連結、表單，疊加在你貼上的熱點圖上。</p>
         </div>
       </section>
 
       <section class="card">
-        <h2>預測參數</h2>
+        <h2>分析參數</h2>
         <div class="stack">
-          <label class="label" for="hotspot-count">熱點數量</label>
+          <label class="label" for="hotspot-count">CTA 標記數量</label>
           <input id="hotspot-count" type="range" min="8" max="60" value="36" />
-          <div id="hotspot-count-label" class="hint">36 個熱點</div>
+          <div id="hotspot-count-label" class="hint">36 個</div>
 
-          <label class="label" for="heat-radius">熱點半徑</label>
+          <label class="label" for="heat-radius">暈染半徑</label>
           <input id="heat-radius" type="range" min="20" max="120" value="48" />
-          <div id="heat-radius-label" class="hint">48px 半徑</div>
+          <div id="heat-radius-label" class="hint">48px</div>
 
           <label class="label" for="center-bias">中心偏好</label>
           <input id="center-bias" type="range" min="0" max="100" value="45" />
           <div id="center-bias-label" class="hint">45%</div>
 
-          <label class="label" for="dom-weight">DOM 權重（融合）</label>
+          <label class="label" for="dom-weight">DOM 權重</label>
           <input id="dom-weight" type="range" min="0" max="100" value="65" />
-          <div id="dom-weight-label" class="hint">70%</div>
+          <div id="dom-weight-label" class="hint">65%</div>
         </div>
       </section>
 
       <section class="card wide">
         <h2>輸出結果</h2>
-        <p class="hint">橘色越深表示預測注意力越高。DOM 融合時會優先點亮可點擊元素區。</p>
+        <p class="hint">DOM CTA 訊號會疊加在圖片上。紅色越深表示 CTA 優先度越高、注意力越集中。</p>
         <div class="canvas-wrap">
           <canvas id="preview-canvas"></canvas>
         </div>
@@ -73,7 +73,7 @@
     </main>
 
     <footer class="footer">
-      <span>不需 GA。建議網址分析使用 Vercel 部署版，以啟用後端 DOM 抓取。</span>
+      <span>建議搭配 Clueify（Figma）或 Visual Eyes 產生 AI 熱點圖，再用本工具疊加 DOM 分析與行銷套件報告。</span>
     </footer>
 
     <script src="./app.js"></script>
